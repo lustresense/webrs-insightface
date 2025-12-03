@@ -27,11 +27,23 @@
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     </style>
   </head>
-  <body class="bg-gray-100 text-gray-800 dark:bg-bgdark dark:text-gray-200 min-h-screen flex items-center justify-center p-4 transition-colors duration-300">
+  <body class="bg-gray-100 text-gray-800 dark:bg-bgdark dark:text-gray-200 min-h-screen flex items-center justify-center p-4 transition-colors duration-300 relative">
+    <div class="absolute top-4 left-4">
+      <a
+        href="{{ url_for('index') }}"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-card border border-gray-200 dark:border-border text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm font-medium text-sm group"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        <span>Kembali ke Beranda</span>
+      </a>
+    </div>
+
     <div class="absolute top-4 right-4">
       <button
         id="theme-toggle"
-        class="p-2 rounded-lg bg-white dark:bg-card border border-gray-200 dark:border-border text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
+        class="p-2 rounded-lg bg-white dark:bg-card border border-gray-200 dark:border-border text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors shadow-sm"
       >
         <svg id="theme-toggle-dark-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
         <svg id="theme-toggle-light-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
