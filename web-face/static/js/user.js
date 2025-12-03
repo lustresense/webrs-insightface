@@ -244,7 +244,7 @@
           statusVerif.textContent = 'Menunggu wajah...';
           resetCountdownUI();
         }
-      } catch (err) {}
+      } catch (err) { }
     }, CHECK_INTERVAL);
   }
 
@@ -500,13 +500,13 @@
       // RESTORED UI: Lengkap dengan Waktu Verifikasi & Timer Reset
       verifData.innerHTML = `
         <div class="space-y-2">
-            <p><span class="font-semibold w-24 inline-block text-gray-500 dark:text-gray-400">NIK:</span> <span class="font-mono font-bold">${d.nik}</span></p>
-            <p><span class="font-semibold w-24 inline-block text-gray-500 dark:text-gray-400">Nama:</span> <span class="font-bold text-lg">${d.name}</span></p>
-            <p><span class="font-semibold w-24 inline-block text-gray-500 dark:text-gray-400">Tgl Lahir:</span> <span>${d.dob || '-'}</span></p>
-            <p><span class="font-semibold w-24 inline-block text-gray-500 dark:text-gray-400">Umur:</span> <span>${d.age}</span></p>
-            <p><span class="font-semibold w-24 inline-block text-gray-500 dark:text-gray-400">Alamat:</span> <span>${d.address}</span></p>
-            <p><span class="font-semibold w-24 inline-block text-gray-500 dark:text-gray-400">Waktu:</span> <span class="font-mono">${elapsed} detik</span></p>
-            
+            <p><strong>NIK:</strong> <span class="font-mono">${d.nik}</span></p>
+            <p><strong>Nama:</strong> ${d.name}</p>
+            <p><strong>Tanggal Lahir:</strong> ${d.dob || '-'}</p>
+            <p><strong>Umur:</strong> ${d.age}</p>
+            <p><strong>Alamat:</strong> ${d.address}</p>
+            <p><strong>Waktu Verifikasi:</strong> ${elapsed} detik</p>
+
             <div class="mt-3 pt-2 border-t dark:border-gray-700 flex justify-between items-center">
                 <span class="text-xs font-medium ${d.confidence > 70 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600'}">
                    Kecocokan: ${d.confidence}%
