@@ -232,27 +232,37 @@
       logBodyEl.innerHTML = '<tr><td colspan="8" class="py-6 px-4 text-center text-gray-400">Tidak ada data log.</td></tr>';
     } else {
       data.forEach((log) => {
-        const tr = document.createElement('tr');
-        tr.className = 'border-b border-border hover:bg-[#202428] transition';
+  const tr = document.createElement('tr');
+  tr.className = 'border-b border-border hover:bg-[#202428] transition';
 
-        const statusColor = log.status === 'success' ? 'text-green-400 bg-green-900/20' : 'text-red-400 bg-red-900/20';
+  // Mapping status ke bahasa Indonesia
+  const statusLabel = log.status === 'success' ? 'SUKSES' : 'GAGAL';
 
-        tr.innerHTML = `
-          <td class="py-3 px-4 text-gray-300 text-sm">${formatTimestamp(log.timestamp)}</td>
-          <td class="py-3 px-4">
-            <span class="px-2 py-1 rounded text-xs font-medium ${statusColor}">
-              ${log.status.toUpperCase()}
-            </span>
-          </td>
-          <td class="py-3 px-4 text-gray-300 text-sm">${log.ip_address || '-'}</td>
-          <td class="py-3 px-4 text-gray-300 text-sm font-mono">${log.nik || '-'}</td>
-          <td class="py-3 px-4 text-gray-200 text-sm">${log.name || '-'}</td>
-          <td class="py-3 px-4 text-gray-300 text-sm">${log.dob || '-'}</td>
-          <td class="py-3 px-4 text-gray-300 text-sm">${log.address || '-'}</td>
-          <td class="py-3 px-4 text-gray-300 text-sm">${log.age || '-'}</td>
-        `;
-        logBodyEl.appendChild(tr);
-      });
+  const statusColor =
+    log.status === 'success'
+      ? 'text-green-400 bg-green-900/20'
+      : 'text-red-400 bg-red-900/20';
+
+  tr.innerHTML = `
+    <td class="py-3 px-4 text-gray-300 text-sm">${formatTimestamp(log.timestamp)}</td>
+ 
+    <td class="py-3 px-4">
+      <span class="px-2 py-1 rounded text-xs font-medium ${statusColor}">
+        ${statusLabel}
+      </span>
+    </td>
+
+    <td class="py-3 px-4 text-gray-300 text-sm">${log.ip_address || '-'}</td>
+
+    <td class="py-3 px-4 text-gray-300 text-sm font-mono">${log.nik || '-'}</td>
+    <td class="py-3 px-4 text-gray-200 text-sm">${log.name || '-'}</td>
+    <td class="py-3 px-4 text-gray-300 text-sm">${log.dob || '-'}</td>
+    <td class="py-3 px-4 text-gray-300 text-sm">${log.address || '-'}</td>
+    <td class="py-3 px-4 text-gray-300 text-sm">${log.age || '-'}</td>
+  `;
+  logBodyEl.appendChild(tr);
+});
+
     }
 
     const startRange = total === 0 ? 0 : (logState.currentPage - 1) * logState.rowsPerPage + 1;
