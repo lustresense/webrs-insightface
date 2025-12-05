@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Admin Dashboard - RS Sang Surya</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: { 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e', 900: '#134e4a' },
+              bgdark: '#0d0f10',
+              card: '#181b1f',
+              border: '#2a2f34',
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      html {
+        font-family: 'Inter', sans-serif;
+      }
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+      .sortable {
+        cursor: pointer;
+        user-select: none;
+      }
+      .sortable.active {
+        color: #14b8a6;
+        font-weight: 600;
+      }
+      .arrow {
+        margin-left: 4px;
+        font-size: 10px;
+        opacity: 0.7;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 text-gray-800 dark:bg-bgdark dark:text-gray-200 min-h-screen transition-colors duration-300">
+    <header class="bg-white dark:bg-card border-b border-gray-200 dark:border-border transition-colors">
+      <div class="container mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
+        <h1 class="text-xl font-bold text-primary-600 dark:text-primary-500">Admin Dashboard</h1>
+        <div class="flex items-center gap-4">
+          <button
+            id="theme-toggle"
+            class="p-2 rounded-lg bg-gray-100 dark:bg-border text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600 transition-colors"
+          >
+            <svg id="theme-toggle-dark-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+            <svg id="theme-toggle-light-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fill-rule="evenodd"
+                d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+                clip-rule="evenodd"
+              ></path>
+            </svg>
+          </button>
+
+          <span class="text-sm hidden sm:inline">Halo, <strong class="text-primary-600 dark:text-primary-500">{{ admin_name }}</strong></span>
+          <a href="{{ url_for('admin_logout') }}" class="py-1.5 px-3 bg-red-600 hover:bg-red-700 rounded-md text-sm font-medium text-white transition-colors">Logout</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8">
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %}
+      <div class="space-y-2 mb-6">
+        {% for category, message in messages %}
+        <div
+          class="px-4 py-3 rounded-md text-sm border {% if category == 'success' %}bg-green-100 border-green-200 text-green-800 dark:bg-green-700 dark:border-green-600 dark:text-green-100 {% elif category == 'danger' %}bg-red-100 border-red-200 text-red-800 dark:bg-red-700 dark:border-red-600 dark:text-red-100 {% else %}bg-white border-gray-200 text-gray-800 dark:bg-card dark:border-border dark:text-gray-200{% endif %}"
+        >
+          {{ message }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %} {% endwith %}
+
+      <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        <div class="bg-white dark:bg-card p-5 rounded-xl shadow border border-gray-200 dark:border-border transition-colors relative overflow-hidden group">
+          <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Processing Unit</h3>
+          <div class="flex items-center gap-3 mt-2">
+            <span class="relative flex h-3 w-3">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-{{ hardware_color }}-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-{{ hardware_color }}-500"></span>
+            </span>
+            <p class="text-xl font-bold text-gray-800 dark:text-gray-200 truncate">{{ hardware_status }}</p>
+          </div>
+          <p class="text-xs text-gray-500 mt-2">Engine: {{ face_engine|upper }}</p>
+
+          <div class="absolute -right-6 -bottom-6 opacity-5 dark:opacity-10 pointer-events-none transform rotate-12 transition-transform group-hover:scale-110">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-28 w-28" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-card p-5 rounded-xl shadow border border-gray-200 dark:border-border transition-colors relative overflow-hidden group">
+          <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Active Model</h3>
+          <p class="text-2xl font-bold text-primary-600 dark:text-primary-500 mt-2 truncate">{{ model_name }}</p>
+          <p class="text-xs mt-1">Status: {% if model_loaded %}<span class="text-green-600 dark:text-green-400 font-bold">● Loaded</span>{% else %}<span class="text-red-600 dark:text-red-400 font-bold">● Error</span>{% endif %}</p>
+
+          <div class="absolute -right-6 -bottom-6 opacity-5 dark:opacity-10 pointer-events-none transform -rotate-12 transition-transform group-hover:scale-110">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-28 w-28" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"
+              />
+            </svg>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-card p-5 rounded-xl shadow border border-gray-200 dark:border-border transition-colors relative overflow-hidden group">
+          <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Pasien</h3>
+          <p class="text-2xl font-bold text-primary-600 dark:text-primary-500 mt-2">{{ total_patients }}</p>
+          <p class="text-xs text-gray-500 mt-1">Dataset Wajah: {{ foto_count }} foto</p>
+          <div class="absolute -right-6 -bottom-6 opacity-5 dark:opacity-10 pointer-events-none transform rotate-6 transition-transform group-hover:scale-110">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+              />
+            </svg>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-card p-5 rounded-xl shadow border border-gray-200 dark:border-border transition-colors">
+          <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Aksi Model</h3>
+          <form method="post" action="{{ url_for('admin_retrain') }}" class="mt-3">
+            <button class="w-full py-2 bg-primary-600 hover:bg-primary-700 rounded-md text-sm font-medium text-white transition-colors flex justify-center items-center gap-2 shadow-md">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Retrain / Reload
+            </button>
+          </form>
+          <p class="text-xs text-gray-500 mt-2">Sinkronisasi & Reload DB.</p>
+        </div>
+      </section>
+
+      <section class="mb-10">
+        <h2 class="text-2xl font-bold text-gray-800 dark:text-primary-500 mb-4">Manajemen Antrian</h2>
+        <div id="queue-cards" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {% for q in queues %}
+          <div class="bg-white dark:bg-card p-6 rounded-xl border border-gray-200 dark:border-border shadow-sm transition-colors">
+            <h3 class="text-lg font-bold text-gray-800 dark:text-gray-200">{{ q['poli_name'] }}</h3>
+            <p class="text-5xl font-extrabold text-primary-600 dark:text-primary-600 my-4">{{ q['next_number'] }}</p>
+            <div class="flex gap-4">
+              <button data-poli="{{ q['poli_name'] }}" class="btn-set w-full py-2 px-4 rounded-md text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 transition-colors">Set</button>
+              <button data-poli="{{ q['poli_name'] }}" class="btn-reset w-full py-2 px-4 rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors">Reset</button>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section>
+        <h2 class="text-2xl font-bold text-gray-800 dark:text-primary-500 mb-4">Data Pasien</h2>
+        <div class="bg-white dark:bg-card p-6 rounded-xl border border-gray-200 dark:border-border shadow-sm transition-colors">
+          <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+            <div class="flex items-center gap-2">
+              <label class="text-sm font-medium text-gray-600 dark:text-gray-400">Tampilkan:</label>
+              <select id="show-rows" class="px-3 py-1.5 bg-gray-50 dark:bg-bgdark border border-gray-300 dark:border-border rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                <option value="10" selected>10</option>
+                <option value="50">50</option>
+                <option value="999999">Semua</option>
+              </select>
+            </div>
+            <div class="text-sm text-gray-500 dark:text-gray-400" id="page-info">Menampilkan 0-0 dari 0</div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-max text-left">
+              <thead class="border-b border-gray-200 dark:border-border text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">
+                <tr>
+                  <th class="py-3 px-4 sortable active" data-sort="nik">NIK <span class="arrow" id="arrow-nik">▲</span></th>
+                  <th class="py-3 px-4 sortable" data-sort="name">Nama <span class="arrow" id="arrow-name"></span></th>
+                  <th class="py-3 px-4 sortable" data-sort="dob">Tgl Lahir <span class="arrow" id="arrow-dob"></span></th>
+                  <th class="py-3 px-4 sortable" data-sort="address">Alamat <span class="arrow" id="arrow-address"></span></th>
+                  <th class="py-3 px-4">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tabel-pasien-body" class="divide-y divide-gray-100 dark:divide-border"></tbody>
+            </table>
+          </div>
+
+          <div class="flex justify-between items-center mt-4">
+            <button id="prev-page" class="py-2 px-4 rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors">
+              &larr; Sebelumnya
+            </button>
+            <span id="page-number" class="text-sm font-medium text-gray-600 dark:text-gray-300">Halaman 1</span>
+            <button id="next-page" class="py-2 px-4 rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors">
+              Berikutnya &rarr;
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-10">
+        <h2 class="text-2xl font-bold text-gray-800 dark:text-primary-500 mb-4">Log Verifikasi</h2>
+        <div class="bg-white dark:bg-card p-6 rounded-xl border border-gray-200 dark:border-border shadow-sm transition-colors">
+          <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+            <div class="flex items-center gap-2">
+              <label class="text-sm font-medium text-gray-600 dark:text-gray-400">Tampilkan:</label>
+              <select id="show-log-rows" class="px-3 py-1.5 bg-gray-50 dark:bg-bgdark border border-gray-300 dark:border-border rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+              </select>
+            </div>
+            <div class="text-sm text-gray-500 dark:text-gray-400" id="log-page-info">Menampilkan 0-0 dari 0</div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-max text-left">
+              <thead class="border-b border-gray-200 dark:border-border text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">
+                <tr>
+                  <th class="py-3 px-4">Waktu</th>
+                  <th class="py-3 px-4">Status</th>
+                  <th class="py-3 px-4">Alamat IP</th>
+                  <th class="py-3 px-4">NIK</th>
+                  <th class="py-3 px-4">Nama</th>
+                  <th class="py-3 px-4">TGL LAHIR</th>
+                  <th class="py-3 px-4">Alamat</th>
+                  <th class="py-3 px-4">Umur</th>
+                </tr>
+              </thead>
+              <tbody id="scan-logs-body" class="divide-y divide-gray-100 dark:divide-border"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="modal-edit" class="fixed inset-0 bg-black bg-opacity-60 hidden z-50 flex items-center justify-center p-4">
+      <div class="bg-white dark:bg-card border border-gray-200 dark:border-border rounded-xl w-full max-w-md p-6 shadow-2xl transition-colors">
+        <h3 class="text-xl font-bold text-primary-600 dark:text-primary-500 mb-4">Edit Data Pasien</h3>
+        <form id="form-edit-pasien" class="space-y-4">
+          <input type="hidden" id="edit-old-nik" />
+          <div>
+            <label class="block text-sm text-gray-600 dark:text-gray-400">NIK (16 digit)</label>
+            <input
+              id="edit-nik"
+              maxlength="16"
+              type="text"
+              class="mt-1 w-full bg-gray-50 dark:bg-bgdark border border-gray-300 dark:border-border rounded-md px-3 py-2 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              required
+            />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 dark:text-gray-400">Nama (tidak bisa diubah)</label>
+            <input id="edit-nama" type="text" class="mt-1 w-full bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-border rounded-md px-3 py-2 text-gray-500 dark:text-gray-400 cursor-not-allowed" disabled readonly />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 dark:text-gray-400">Tanggal Lahir</label>
+            <input
+              id="edit-dob"
+              type="date"
+              min="2000-01-01"
+              class="mt-1 w-full bg-gray-50 dark:bg-bgdark border border-gray-300 dark:border-border rounded-md px-3 py-2 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary-500 [color-scheme:light] dark:[color-scheme:dark]"
+              required
+            />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 dark:text-gray-400">Alamat</label>
+            <textarea
+              id="edit-alamat"
+              rows="3"
+              class="mt-1 w-full bg-gray-50 dark:bg-bgdark border border-gray-300 dark:border-border rounded-md px-3 py-2 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              required
+            ></textarea>
+          </div>
+          <div class="flex gap-3 pt-2">
+            <button type="submit" class="flex-1 py-2 bg-primary-600 hover:bg-primary-700 rounded-md text-white text-sm font-medium transition-colors">Simpan</button>
+            <button type="button" id="btn-edit-cancel" class="flex-1 py-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 rounded-md text-white text-sm font-medium transition-colors">Batal</button>
+          </div>
+          <p class="text-xs text-gray-500 mt-2">Nama tidak bisa diubah. Ubah NIK akan memindahkan semua file dan retrain model otomatis.</p>
+        </form>
+      </div>
+    </div>
+
+    <script src="/static/js/admin.js"></script>
+
+    <script>
+      (function () {
+        // Toggle Logic
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const darkIcon = document.getElementById('theme-toggle-dark-icon');
+        const lightIcon = document.getElementById('theme-toggle-light-icon');
+
+        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+          lightIcon.classList.remove('hidden');
+        } else {
+          document.documentElement.classList.remove('dark');
+          darkIcon.classList.remove('hidden');
+        }
+
+        themeToggleBtn.addEventListener('click', function () {
+          darkIcon.classList.toggle('hidden');
+          lightIcon.classList.toggle('hidden');
+          if (localStorage.getItem('color-theme')) {
+            if (localStorage.getItem('color-theme') === 'light') {
+              document.documentElement.classList.add('dark');
+              localStorage.setItem('color-theme', 'dark');
+            } else {
+              document.documentElement.classList.remove('dark');
+              localStorage.setItem('color-theme', 'light');
+            }
+          } else {
+            if (document.documentElement.classList.contains('dark')) {
+              document.documentElement.classList.remove('dark');
+              localStorage.setItem('color-theme', 'light');
+            } else {
+              document.documentElement.classList.add('dark');
+              localStorage.setItem('color-theme', 'dark');
+            }
+          }
+        });
+
+        // Queue Logic (Dari script lama)
+        const cards = document.getElementById('queue-cards');
+        if (!cards) return;
+        cards.addEventListener('click', async (e) => {
+          const t = e.target;
+          if (t.classList.contains('btn-set')) {
+            const poli = t.dataset.poli;
+            const nomor = prompt(`Set nomor terakhir untuk ${poli}: (user akan dapat nomor ini + 1)`, '0');
+            if (nomor === null) return;
+            const n = parseInt(nomor, 10);
+            if (isNaN(n) || n < 0) {
+              alert('Nomor tidak valid');
+              return;
+            }
+            try {
+              const r = await fetch("{{ url_for('api_queue_set') }}", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ poli, nomor: n }) });
+              const d = await r.json();
+              if (!d.ok) alert(d.msg || 'Gagal set nomor');
+              else location.reload();
+            } catch (err) {
+              alert('Error: ' + err.message);
+            }
+          }
+          if (t.classList.contains('btn-reset')) {
+            const poli = t.dataset.poli;
+            if (!confirm(`Reset nomor terakhir ${poli} ke 0?`)) return;
+            try {
+              const r = await fetch("{{ url_for('api_queue_set') }}", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ poli, nomor: 0 }) });
+              const d = await r.json();
+              if (!d.ok) alert(d.msg || 'Gagal reset');
+              else location.reload();
+            } catch (err) {
+              alert('Error: ' + err.message);
+            }
+          }
+        });
+
+        // Cloudflared Tunnel Management
+        const tunnelIndicator = document.getElementById('tunnel-indicator');
+        const tunnelStatusText = document.getElementById('tunnel-status-text');
+        const tunnelUrlContainer = document.getElementById('tunnel-url-container');
+        const tunnelUrl = document.getElementById('tunnel-url');
+        const copyUrlBtn = document.getElementById('copy-url-btn');
+        const startTunnelBtn = document.getElementById('start-tunnel-btn');
+        const stopTunnelBtn = document.getElementById('stop-tunnel-btn');
+
+        function updateTunnelStatus(status) {
+          const { status: tunnelStatus, url, error } = status;
+
+          // Update indicator
+          tunnelIndicator.className = 'w-3 h-3 rounded-full';
+          switch (tunnelStatus) {
+            case 'running':
+              tunnelIndicator.classList.add('bg-green-500');
+              tunnelStatusText.textContent = 'Running';
+              startTunnelBtn.disabled = true;
+              stopTunnelBtn.disabled = false;
+              break;
+            case 'starting':
+              tunnelIndicator.classList.add('bg-yellow-500');
+              tunnelStatusText.textContent = 'Starting...';
+              startTunnelBtn.disabled = true;
+              stopTunnelBtn.disabled = false;
+              break;
+            case 'error':
+              tunnelIndicator.classList.add('bg-red-500');
+              tunnelStatusText.textContent = error || 'Error';
+              startTunnelBtn.disabled = false;
+              stopTunnelBtn.disabled = true;
+              break;
+            default:
+              tunnelIndicator.classList.add('bg-gray-400');
+              tunnelStatusText.textContent = 'Stopped';
+              startTunnelBtn.disabled = false;
+              stopTunnelBtn.disabled = true;
+          }
+
+          // Update URL
+          if (url && tunnelStatus === 'running') {
+            tunnelUrl.value = url;
+            tunnelUrlContainer.classList.remove('hidden');
+          } else {
+            tunnelUrlContainer.classList.add('hidden');
+          }
+        }
+
+        async function fetchTunnelStatus() {
+          try {
+            const r = await fetch('/api/tunnel/status');
+            const d = await r.json();
+            if (d.ok) {
+              updateTunnelStatus(d.tunnel);
+            }
+          } catch (err) {
+            console.error('Error fetching tunnel status:', err);
+          }
+        }
+
+        copyUrlBtn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(tunnelUrl.value);
+            copyUrlBtn.textContent = 'Copied!';
+            setTimeout(() => {
+              copyUrlBtn.textContent = 'Copy';
+            }, 2000);
+          } catch (err) {
+            // Fallback for older browsers
+            tunnelUrl.select();
+            document.execCommand('copy');
+            copyUrlBtn.textContent = 'Copied!';
+            setTimeout(() => {
+              copyUrlBtn.textContent = 'Copy';
+            }, 2000);
+          }
+        });
+
+        startTunnelBtn.addEventListener('click', async () => {
+          startTunnelBtn.disabled = true;
+          startTunnelBtn.textContent = 'Starting...';
+          try {
+            const r = await fetch('/api/tunnel/start', { method: 'POST' });
+            const d = await r.json();
+            if (!d.ok) {
+              alert(d.msg || 'Gagal memulai tunnel');
+            }
+            fetchTunnelStatus(); // Refresh status
+          } catch (err) {
+            alert('Error: ' + err.message);
+          } finally {
+            startTunnelBtn.disabled = false;
+            startTunnelBtn.textContent = 'Start';
+          }
+        });
+
+        stopTunnelBtn.addEventListener('click', async () => {
+          if (!confirm('Stop tunnel Cloudflare?')) return;
+          stopTunnelBtn.disabled = true;
+          stopTunnelBtn.textContent = 'Stopping...';
+          try {
+            const r = await fetch('/api/tunnel/stop', { method: 'POST' });
+            const d = await r.json();
+            if (!d.ok) {
+              alert(d.msg || 'Gagal menghentikan tunnel');
+            }
+            fetchTunnelStatus(); // Refresh status
+          } catch (err) {
+            alert('Error: ' + err.message);
+          } finally {
+            stopTunnelBtn.disabled = false;
+            stopTunnelBtn.textContent = 'Stop';
+          }
+        });
+
+        // Auto-refresh tunnel status every 5 seconds
+        fetchTunnelStatus();
+        setInterval(fetchTunnelStatus, 5000);
+      })();
+    </script>
+  </body>
+</html>

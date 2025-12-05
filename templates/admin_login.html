@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Admin Login - RS Sang Surya</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: { 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e', 900: '#134e4a' },
+              bgdark: '#0d0f10',
+              card: '#181b1f',
+              border: '#2a2f34',
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      html {
+        font-family: 'Inter', sans-serif;
+      }
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    </style>
+  </head>
+  <body class="bg-gray-100 text-gray-800 dark:bg-bgdark dark:text-gray-200 min-h-screen flex items-center justify-center p-4 transition-colors duration-300 relative">
+    <div class="absolute top-4 left-4">
+      <a
+        href="{{ url_for('index') }}"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-card border border-gray-200 dark:border-border text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm font-medium text-sm group"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        <span>Kembali ke Beranda</span>
+      </a>
+    </div>
+
+    <div class="absolute top-4 right-4">
+      <button
+        id="theme-toggle"
+        class="p-2 rounded-lg bg-white dark:bg-card border border-gray-200 dark:border-border text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors shadow-sm"
+      >
+        <svg id="theme-toggle-dark-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+        <svg id="theme-toggle-light-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path
+            fill-rule="evenodd"
+            d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+            clip-rule="evenodd"
+          ></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="w-full max-w-md bg-white dark:bg-card p-8 rounded-xl shadow-lg border border-gray-200 dark:border-border transition-colors duration-300">
+      <div class="flex justify-center items-center mb-6">
+        <img
+          src="https://lh5.googleusercontent.com/proxy/TcqkvwD_pJZMIMPjqkbYhgsgmAwjyAfq4g3Wg7WjBzctGvMwOLdStNbypknVJhLuq-plW4E62Y2w_rdTj7eKsIzL0D3THIPbMlbm2kh4PbRO"
+          alt="Logo RS Sang Surya"
+          class="h-12 w-12 object-contain rounded-full shadow-sm"
+        />
+        <h1 class="text-3xl font-bold text-primary-600 dark:text-primary-500 ml-3">RS Sang Surya</h1>
+      </div>
+
+      <h2 class="text-xl font-semibold text-center text-gray-800 dark:text-gray-200 mb-6">Admin Login</h2>
+
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %}
+      <div class="space-y-2 mb-4">
+        {% for category, message in messages %}
+        <div
+          class="px-4 py-3 rounded-md text-sm {% if category == 'success' %}bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-100 {% elif category == 'danger' %}bg-red-100 text-red-800 dark:bg-red-700 dark:text-red-100 {% else %}bg-gray-100 text-gray-800 dark:bg-border dark:text-gray-200{% endif %}"
+        >
+          {{ message }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %} {% endwith %}
+
+      <form method="post" action="{{ url_for('admin_login_post') }}" class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Username</label>
+          <input
+            name="username"
+            type="text"
+            class="mt-1 w-full px-3 py-2 bg-gray-50 dark:bg-bgdark border border-gray-300 dark:border-border rounded-md focus:outline-none focus:ring-primary-600 focus:border-primary-600 text-gray-900 dark:text-gray-200 transition-colors"
+            required
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Password</label>
+          <input
+            name="password"
+            type="password"
+            class="mt-1 w-full px-3 py-2 bg-gray-50 dark:bg-bgdark border border-gray-300 dark:border-border rounded-md focus:outline-none focus:ring-primary-600 focus:border-primary-600 text-gray-900 dark:text-gray-200 transition-colors"
+            required
+          />
+        </div>
+        <button type="submit" class="w-full py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 shadow-md transition-colors">Login</button>
+      </form>
+    </div>
+
+    <script>
+      const themeToggleBtn = document.getElementById('theme-toggle');
+      const darkIcon = document.getElementById('theme-toggle-dark-icon');
+      const lightIcon = document.getElementById('theme-toggle-light-icon');
+
+      if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+        lightIcon.classList.remove('hidden');
+      } else {
+        document.documentElement.classList.remove('dark');
+        darkIcon.classList.remove('hidden');
+      }
+
+      themeToggleBtn.addEventListener('click', function () {
+        darkIcon.classList.toggle('hidden');
+        lightIcon.classList.toggle('hidden');
+        if (localStorage.getItem('color-theme')) {
+          if (localStorage.getItem('color-theme') === 'light') {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('color-theme', 'dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('color-theme', 'light');
+          }
+        } else {
+          if (document.documentElement.classList.contains('dark')) {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('color-theme', 'light');
+          } else {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('color-theme', 'dark');
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

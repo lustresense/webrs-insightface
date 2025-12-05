@@ -1,0 +1,9 @@
+flask
+opencv-python
+numpy
+Pillow
+insightface
+onnxruntime-gpu
+scipy
+torch
+torchvision
