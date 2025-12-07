@@ -50,3 +50,7 @@ Thumbs.db
 
 # Static cache
 static/.cache
+
+# Large files (GitHub limit)
+cloudflared.exe
+model/models/*.zip
