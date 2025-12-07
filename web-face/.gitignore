@@ -34,6 +34,8 @@ ENV/
 database/*.db
 model/*.db
 model/buffalo_l/*.onnx
+model/models/*.onnx
+model/models/**/*.onnx
 
 # Logs & Cache
 *.log
@@ -51,6 +53,6 @@ Thumbs.db
 # Static cache
 static/.cache
 
-# Large files (GitHub limit)
-cloudflared.exe
+# Large files (GitHub limit - only model archives)
 model/models/*.zip
+model/models/**/*.zip
