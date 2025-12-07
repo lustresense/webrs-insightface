@@ -5,6 +5,10 @@
     <title>RS Sang Surya - Pelayanan Pasien</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MediaPipe FaceMesh for liveness detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <!-- OpenCV.js for face detection -->
+    <script src="https://docs.opencv.org/4.8.0/opencv.js" async></script>
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -59,10 +63,15 @@
       .video-back-cam {
         transform: scaleX(1) !important;
       } /* Jangan mirror kalo kamera belakang */
+            
       .modal-center {
         display: flex;
         align-items: center;
         justify-content: center;
+        pointer-events: none;
+      }
+      .modal-center > div {
+        pointer-events: auto;
       }
       .video-wrapper {
         position: relative;
@@ -251,7 +260,7 @@
             </div>
             <div class="mt-4 text-gray-300 text-sm space-y-1">
               <p>Status: <span id="status-reg" class="text-primary-400 font-medium">Menunggu...</span></p>
-              <p>Foto: <span id="count-reg" class="font-mono">0</span> / 20</p>
+              <p>Foto: <span id="count-reg" class="font-mono">0</span> / 15</p>
             </div>
           </div>
         </div>
@@ -295,7 +304,7 @@
               </div>
             </div>
             <div id="verif-nik" class="hidden bg-white dark:bg-card p-6 rounded-xl shadow-lg border border-gray-200 dark:border-border">
-              <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Cari Database</h3>
+              <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Cari Data Pasien</h3>
               <div class="flex gap-2">
                 <input
                   id="fallback-nik"
@@ -311,6 +320,7 @@
             <h2 class="text-white text-lg font-semibold mb-3 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Verifikasi Wajah</h2>
             <div class="video-wrapper relative overflow-hidden rounded-lg bg-black aspect-[4/3] w-full">
               <video id="video-verif" autoplay playsinline class="w-full h-full object-cover"></video>
+              <canvas id="canvas-verif" class="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
               <div id="verif-focus-box" class="focus-box transition-colors duration-300 border-red-600 shadow-[0_0_20px_rgba(0,0,0,0.5)]"></div>
               <div class="focus-text bg-black bg-opacity-50 backdrop-blur-sm">Arahkan wajah ke sini</div>
               <button class="btn-switch-cam" id="btn-switch-cam-verif" title="Ganti Kamera">
@@ -378,12 +388,20 @@
                   </select>
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Keluhan</label
-                  ><textarea
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Tinggi Badan (cm)</label>
+                  <input type="number" id="gw-tinggi" placeholder="160" class="mt-1 w-full border dark:border-border rounded-md px-3 py-2 bg-white dark:bg-bgdark text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500" min="0" max="300">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Berat Badan (kg)</label>
+                  <input type="number" id="gw-berat" placeholder="70" class="mt-1 w-full border dark:border-border rounded-md px-3 py-2 bg-white dark:bg-bgdark text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500" min="0" max="500">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-400">Keluhan</label>
+                  <textarea
                     id="gw-keluhan"
                     rows="3"
+                    placeholder="Deskripsikan keluhan Anda..."
                     class="mt-1 w-full border dark:border-border rounded-md px-3 py-2 bg-white dark:bg-bgdark text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    required
                   ></textarea>
                 </div>
               </div>
@@ -446,12 +464,13 @@
         <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-4">Registrasi Berhasil!</h3>
         <p class="mt-2 text-gray-600 dark:text-gray-300">Data pasien dan foto wajah Anda telah tersimpan.</p>
         <div class="mt-6 flex flex-col sm:flex-row sm:space-x-4 space-y-3 sm:space-y-0">
-          <button id="btn-modal-lanjut-poli" class="w-full px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700">Formulir Poli</button
-          ><button id="btn-modal-regis-tutup" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600">Tutup</button>
+          <button id="btn-modal-lanjut-poli" class="w-full px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700">Formulir Poli</button>
+          <button id="btn-modal-regis-tutup" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600">Tutup</button>
         </div>
       </div>
     </div>
 
+    <script src="/static/js/mediapipe_liveness.js"></script>
     <script src="/static/js/user.js"></script>
 
     <script>

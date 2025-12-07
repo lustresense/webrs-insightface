@@ -17,8 +17,6 @@ from datetime import datetime
 import cv2
 import numpy as np
 from PIL import Image
-import pytesseract
-from pytesseract import Output  # Penting untuk fitur kotak hijau
 
 from flask import (
     Flask, render_template, request, jsonify,
@@ -37,23 +35,12 @@ MODEL_DIR = os.path.join(BASE_DIR, "model")
 DB_PATH = os.path.join(BASE_DIR, "database.db")
 MODEL_PATH = os.path.join(MODEL_DIR, "Trainer.yml")
 
-# Konfigurasi Folder KTP (4 Variasi)
-DATA_KTP_DIR = os.path.join(BASE_DIR, "data", "database_ktp")
-DIR_RGB = os.path.join(DATA_KTP_DIR, "source_rgb")       # Foto Asli Cropped
-DIR_NEG = os.path.join(DATA_KTP_DIR, "negative")         # Foto Negatif
-DIR_GRAY = os.path.join(DATA_KTP_DIR, "grayscale")       # Foto Siap OCR
-DIR_BOX = os.path.join(DATA_KTP_DIR, "debug_box")        # Foto dengan Kotak Hijau
+# Buat folder wajah jika belum ada
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(MODEL_DIR, exist_ok=True)
 
-# Buat semua folder jika belum ada
-for d in [DATA_DIR, MODEL_DIR, DIR_RGB, DIR_NEG, DIR_GRAY, DIR_BOX]:
-    os.makedirs(d, exist_ok=True)
-
-# ====== KONFIGURASI TESSERACT (OCR) ======
-path_tesseract = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-if os.path.exists(path_tesseract):
-    pytesseract.pytesseract.tesseract_cmd = path_tesseract
-else:
-    logger.warning("WARNING: Tesseract OCR tidak ditemukan. Fitur scan KTP mungkin gagal.")
+# Disable face engine initialization on import - will initialize on first use
+os.environ["FACE_ENGINE_INIT"] = "0"
 
 # ====== FLASK APP ======
 app = Flask(__name__)
@@ -151,7 +138,7 @@ def start_cloudflared_tunnel():
         save_tunnel_status()
         
         # Start cloudflared process
-        cmd = [CLOUDFLARED_PATH, "tunnel", "--url", "http://127.0.0.1:5000"]
+        cmd = [CLOUDFLARED_PATH, "tunnel", "--url", "http://127.0.0.1:5000", "--protocol", "http2"]
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -245,101 +232,7 @@ def login_required(view_func):
     wrapper.__name__ = view_func.__name__
     return wrapper
 
-# ====== HELPER FUNCTIONS (OCR & IMAGE PROCESSING) ======
-
-def order_points(pts):
-    rect = np.zeros((4, 2), dtype="float32")
-    s = pts.sum(axis=1)
-    rect[0] = pts[np.argmin(s)]
-    rect[2] = pts[np.argmax(s)]
-    diff = np.diff(pts, axis=1)
-    rect[1] = pts[np.argmin(diff)]
-    rect[3] = pts[np.argmax(diff)]
-    return rect
-
-def smart_crop_card(image):
-    try:
-        orig = image.copy()
-        ratio = image.shape[0] / 500.0
-        h = 500
-        w = int(image.shape[1] / ratio)
-        small = cv2.resize(image, (w, h))
-
-        gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (11, 11), 0)
-        edged = cv2.Canny(gray, 75, 200)
-        
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-        edged = cv2.morphologyEx(edged, cv2.MORPH_CLOSE, kernel)
-
-        cnts, _ = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:5]
-
-        screenCnt = None
-        for c in cnts:
-            peri = cv2.arcLength(c, True)
-            approx = cv2.approxPolyDP(c, 0.02 * peri, True)
-            if len(approx) == 4:
-                total_area = w * h
-                contour_area = cv2.contourArea(c)
-                if contour_area > (total_area * 0.10): 
-                    screenCnt = approx
-                    break 
-
-        if screenCnt is None:
-            return image
-
-        pts = screenCnt.reshape(4, 2) * ratio
-        rect = order_points(pts)
-        (tl, tr, br, bl) = rect
-
-        widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
-        widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
-        maxWidth = max(int(widthA), int(widthB))
-
-        heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
-        heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
-        maxHeight = max(int(heightA), int(heightB))
-
-        dst = np.array([
-            [0, 0],
-            [maxWidth - 1, 0],
-            [maxWidth - 1, maxHeight - 1],
-            [0, maxHeight - 1]], dtype="float32")
-
-        M = cv2.getPerspectiveTransform(rect, dst)
-        return cv2.warpPerspective(orig, M, (maxWidth, maxHeight))
-    except:
-        return image
-
-def clean_name(val):
-    val = re.sub(r'^[^A-Z0-9]+', '', val.upper())
-    val = re.sub(r'[^A-Z]+$', '', val)
-    val = re.sub(r'\s+[A-Z]{1,2}\s*\d*$', '', val)
-    val = val.replace('1', 'I').replace('7', 'Z')
-    if "NIK" in val: val = val.split("NIK")[1]
-    return val.strip()
-
-def scrub_address(addr_text):
-    stop_words = ["LAKI", "PEREMPUAN", "GOL", "DARAH", "AGAMA", "KECAMATAN", "KWN", "KAWIN", "JENIS", "KELAMIN", "AMIN"]
-    addr_upper = addr_text.upper()
-    for sw in stop_words:
-        if sw in addr_upper:
-            addr_text = addr_text[:addr_upper.index(sw)]
-            addr_upper = addr_text.upper()
-    return re.sub(r'[^A-Z0-9\s\.\/]', '', addr_text).strip()
-
-def clean_garbage(text_val):
-    text_val = re.sub(r'^[^A-Z0-9]+', '', text_val.upper())
-    text_val = re.sub(r'[^A-Z0-9]+$', '', text_val)
-    return text_val.strip()
-
-def force_alpha(text):
-    replacements = {'0': 'O', '1': 'I', '5': 'S', '2': 'Z', '4': 'A', '8': 'B', '6': 'G', '7': 'Z', '3': 'E'}
-    text = text.upper()
-    for digit, char in replacements.items():
-        text = text.replace(digit, char)
-    return re.sub(r'[^A-Z\s\.,]', '', text).strip()
+# ====== HELPER FUNCTIONS (IMAGE PROCESSING) ======
 
 # ====== DB INIT ======
 def db_connect():
@@ -472,7 +365,11 @@ def ensure_min_samples(nik: int, min_count: int = 20) -> int:
 # ====== LBPH LOGIC ======
 recognizer = None
 if hasattr(cv2, "face"):
-    recognizer = cv2.face.LBPHFaceRecognizer_create(1, 8, 8, 8)
+    try:
+        recognizer = cv2.face.LBPHFaceRecognizer_create(1, 8, 8, 8)
+    except Exception as e:
+        logger.warning(f"LBPH Recognizer not available: {e}")
+        recognizer = None
 
 def load_model_if_exists():
     global model_loaded
@@ -590,6 +487,10 @@ def admin_dashboard():
     
     if FACE_ENGINE == "insightface":
         try:
+            # Trigger initialization if not already done
+            if not hasattr(face_engine, '_initialized') or not face_engine._initialized:
+                face_engine.initialize()
+            
             status = face_engine.get_engine_status()
             engine_info['model_loaded'] = status.get('insightface_available', False)
             engine_info['embeddings_count'] = status.get('total_embeddings', 0)
@@ -622,8 +523,13 @@ def admin_dashboard():
 def api_engine_status():
     status = {'engine': FACE_ENGINE, 'model_loaded': model_loaded}
     if FACE_ENGINE == "insightface":
-        try: status.update(face_engine.get_engine_status())
-        except Exception as e: status['error'] = str(e)
+        try:
+            # Trigger initialization if not already done
+            if not hasattr(face_engine, '_initialized') or not face_engine._initialized:
+                face_engine.initialize()
+            status.update(face_engine.get_engine_status())
+        except Exception as e: 
+            status['error'] = str(e)
     return jsonify(ok=True, status=status)
 
 # ====== API: CLOUDFLARED TUNNEL MANAGEMENT ======
@@ -678,156 +584,6 @@ def api_scan_logs():
         logger.error(f"Error fetching scan logs: {e}")
         return jsonify(ok=False, msg=str(e)), 500
 
-# ====== API: SCAN KTP (PIPELINE NEGATIVE -> GRAYSCALE) ======
-@app.post("/api/ocr/ktp")
-def api_ocr_ktp():
-    file = request.files.get("image")
-    if not file: return jsonify(ok=False, msg="Tidak ada gambar.")
-
-    try:
-        # 1. READ & CROP
-        img = bytes_to_bgr(file.read())
-        img_cropped = smart_crop_card(img)
-
-        # 2. ROTATE & SCALE
-        if img_cropped.shape[0] > img_cropped.shape[1]:
-            img_cropped = cv2.rotate(img_cropped, cv2.ROTATE_90_COUNTERCLOCKWISE)
-        
-        scale = 2.0 
-        img_rgb = cv2.resize(img_cropped, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
-
-        # 3. PIPELINE BARU (RGB -> NEGATIVE -> GRAYSCALE)
-        img_negative = cv2.bitwise_not(img_rgb)
-        img_gray = cv2.cvtColor(img_negative, cv2.COLOR_BGR2GRAY)
-
-        # 4. ENHANCEMENT & BINARIZATION
-        gray_binary = cv2.threshold(img_gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-        kernel = np.ones((2,2), np.uint8)
-        gray_final = cv2.erode(gray_binary, kernel, iterations=1)
-
-        # 5. OCR & VISUALISASI KOTAK (DEBUG)
-        d = pytesseract.image_to_data(gray_final, lang='ind', output_type=Output.DICT, config='--psm 6')
-        
-        img_box = img_rgb.copy() # Canvas box di atas gambar asli
-        n_boxes = len(d['text'])
-        for i in range(n_boxes):
-            if int(d['conf'][i]) > 40 and d['text'][i].strip() != "":
-                (x, y, w, h) = (d['left'][i], d['top'][i], d['width'][i], d['height'][i])
-                cv2.rectangle(img_box, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-        # 6. PARSING DATA
-        full_text_raw = pytesseract.image_to_string(gray_final, lang='ind', config='--psm 6')
-        logger.info("\n--- OCR RAW RESULT ---\n" + full_text_raw + "\n----------------------")
-
-        lines = [line.strip() for line in full_text_raw.split('\n') if len(line.strip()) > 2]
-        full_text_oneline = " ".join(lines)
-        data = {"nik": "", "nama": "", "dob": "", "alamat": ""}
-
-        # Logic NIK
-        digits = re.sub(r'[^0-9]', '', full_text_oneline)
-        match_jatim = re.search(r'35\d{14}', digits)
-        match_general = re.search(r'3\d{15}', digits)
-        if match_jatim: data['nik'] = match_jatim.group(0)
-        elif match_general: data['nik'] = match_general.group(0)
-        else:
-            match_any = re.search(r'\d{16}', digits)
-            if match_any: data['nik'] = match_any.group(0)
-
-        # Logic Tanggal (Dari NIK)
-        if data['nik'] and len(data['nik']) == 16:
-            try:
-                tgl, bln, thn = int(data['nik'][6:8]), int(data['nik'][8:10]), int(data['nik'][10:12])
-                if tgl > 40: tgl -= 40
-                curr_y = int(datetime.now().strftime("%y"))
-                full_y = 2000 + thn if thn <= curr_y else 1900 + thn
-                data['dob'] = f"{full_y}-{bln:02d}-{tgl:02d}"
-            except: pass
-
-        # Logic Nama
-        for i, line in enumerate(lines):
-            if "NAMA" in line.upper():
-                raw = re.sub(r'nama\s*[:.\-]*\s*', '', line.lower())
-                clean = clean_name(raw)
-                clean = re.sub(r'[_—\-:;&]', '', clean)
-                clean = re.sub(r'\bBAN\b', '', clean)
-                for w in ["LAKI", "PEREMPUAN", "GOL", "DARAH"]:
-                    if w in clean: clean = clean.split(w)[0]
-                if len(clean) > 2: data['nama'] = clean.strip()
-                elif i + 1 < len(lines):
-                    pot = lines[i+1].strip().upper()
-                    if "LAHIR" not in pot: data['nama'] = clean_name(pot)
-                break
-
-        # Logic Alamat
-        addr_buffer = []
-        for i, line in enumerate(lines):
-            if "ALAMAT" in line.upper():
-                val = re.sub(r'alamat\s*[:.\-]*\s*', '', line.lower()).upper()
-                val = clean_garbage(val)
-                if len(val.split(' ')[0]) <= 2: val = " ".join(val.split(' ')[1:])
-                if "RT" in val: val = val.split("RT")[0]
-                val = scrub_address(val)
-                if len(val) > 2: addr_buffer.append(val.strip())
-                break
-        
-        rtrw_match = re.search(r'(\d{3})\s*[\/|1l7]\s*(\d{3})', full_text_oneline)
-        if rtrw_match: addr_buffer.append(f"RT/RW {rtrw_match.group(1)}/{rtrw_match.group(2)}")
-        
-        for line in lines:
-            up = line.upper()
-            if re.search(r'(KEL|DESA)', up):
-                val = re.sub(r'(KEL|DESA|/DASA|ILESA)[\.\s:]*', '', up)
-                val = scrub_address(val)
-                if "KEC" in val: val = val.split("KEC")[0]
-                val = force_alpha(val)
-                if len(val) > 2: addr_buffer.append(f"Kel. {val}")
-            if "KECAMATAN" in up:
-                val = up.replace("KECAMATAN", "").strip()
-                val = scrub_address(val)
-                val = val.replace("DUKLUIN", "DUKUN").replace("DUKUIN", "DUKUN")
-                val = force_alpha(val)
-                val = re.sub(r'\s+[A-Z]{1,2}$', '', val)
-                if len(val) > 2: addr_buffer.append(f"Kec. {val}")
-
-        if addr_buffer:
-            seen = set()
-            data['alamat'] = ", ".join([x for x in addr_buffer if not (x in seen or seen.add(x))])
-
-        # --- SIMPAN HASIL KE 4 FOLDER ---
-        filename_base = data['nik'] if data['nik'] else "unknown_" + datetime.now().strftime("%H%M%S")
-        
-        cv2.imwrite(os.path.join(DIR_RGB, f"{filename_base}.jpg"), img_rgb)
-        cv2.imwrite(os.path.join(DIR_NEG, f"{filename_base}.jpg"), img_negative)
-        cv2.imwrite(os.path.join(DIR_GRAY, f"{filename_base}.jpg"), gray_final)
-        cv2.imwrite(os.path.join(DIR_BOX, f"{filename_base}.jpg"), img_box) # Box visual
-
-        return jsonify(ok=True, data=data)
-
-    except Exception as e:
-        logger.error(f"OCR Error: {e}")
-        return jsonify(ok=False, msg="Gagal proses OCR.")
-
-# ====== API: CHECK KTP (Fast) ======
-@app.post("/api/check_ktp_presence")
-def api_check_ktp_presence():
-    file = request.files.get("frame")
-    if not file: return jsonify(ok=False, found=False)
-    try:
-        img = bytes_to_bgr(file.read())
-        small = cv2.resize(img, (320, 240))
-        hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, np.array([70, 30, 30]), np.array([140, 255, 255]))
-        kernel = np.ones((3, 3), np.uint8)
-        mask = cv2.erode(mask, kernel, iterations=1)
-        mask = cv2.dilate(mask, kernel, iterations=2)
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for cnt in contours:
-            if cv2.contourArea(cnt) > 800:
-                x,y,w,h = cv2.boundingRect(cnt)
-                if 1.1 < (float(w)/h) < 2.5: return jsonify(ok=True, found=True)
-        return jsonify(ok=True, found=False)
-    except: return jsonify(ok=False, found=False)
-
 # ====== API: CHECK FACE (Fast) ======
 @app.post("/api/check_face")
 def api_check_face():
@@ -835,10 +591,29 @@ def api_check_face():
     if not file: return jsonify(ok=False, found=False)
     try:
         img = bytes_to_bgr(file.read())
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        roi, _ = detect_largest_face(gray)
-        return jsonify(ok=True, found=(roi is not None))
-    except: return jsonify(ok=False, found=False)
+        if FACE_ENGINE == "insightface":
+            # Use InsightFace to detect and search embeddings
+            face = face_engine.detect_largest_face(img)
+            if face:
+                # Found face - try to match against embeddings database
+                embedding = face.get('embedding')
+                if embedding is not None:
+                    face_engine.load_all_embeddings()
+                    nik, sim = face_engine.find_best_match(embedding)
+                    if nik and sim >= face_engine.RECOGNITION_THRESHOLD:
+                        with db_connect() as conn:
+                            r = conn.execute("SELECT * FROM patients WHERE nik=?", (nik,)).fetchone()
+                        if r:
+                            return jsonify(ok=True, found=True, nik=nik, name=r['name'], similarity=float(sim))
+                return jsonify(ok=True, found=True)  # Face found but not in DB
+            return jsonify(ok=True, found=False)
+        else:
+            # Fallback to LBPH
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            roi, _ = detect_largest_face(gray)
+            return jsonify(ok=True, found=(roi is not None))
+    except Exception as e: 
+        return jsonify(ok=False, found=False, error=str(e))
 
 # ====== REGISTRASI ======
 @app.post("/api/register")
@@ -849,24 +624,31 @@ def api_register():
     address = (request.form.get("alamat") or request.form.get("address") or "").strip()
     files = request.files.getlist("files[]") if request.files.getlist("files[]") else request.files.getlist("frames[]")
 
-    if not (nik_str and name and dob and address): return jsonify(ok=False, msg="Isi semua data."), 400
-    if not files: return jsonify(ok=False, msg="Tidak ada foto wajah."), 400
+    if not (nik_str and name and dob and address): 
+        return jsonify(ok=False, msg="Isi semua data."), 400
+    if not files: 
+        return jsonify(ok=False, msg="Tidak ada foto wajah."), 400
     
-    try: nik = int(nik_str)
-    except: return jsonify(ok=False, msg="NIK harus angka."), 400
+    try: 
+        nik = int(nik_str)
+    except: 
+        return jsonify(ok=False, msg="NIK harus angka."), 400
 
     now_iso = datetime.now().isoformat(timespec="seconds")
     with db_connect() as conn:
-        conn.execute("INSERT INTO patients(nik, name, dob, address, created_at) VALUES(?, ?, ?, ?, ?) ON CONFLICT(nik) DO UPDATE SET name=excluded.name, dob=excluded.dob, address=excluded.address", (nik, name, dob, address, now_iso))
+        conn.execute(
+            "INSERT INTO patients(nik, name, dob, address, created_at) VALUES(?, ?, ?, ?, ?) ON CONFLICT(nik) DO UPDATE SET name=excluded.name, dob=excluded.dob, address=excluded.address",
+            (nik, name, dob, address, now_iso)
+        )
         conn.commit()
 
     frames = [bytes_to_bgr(f.read()) for f in files]
     
     if FACE_ENGINE == "insightface":
         try:
-            enrolled, msg = face_engine.enroll_multiple_frames(frames, nik, min_embeddings=5)
+            # ✅ FAST PATH: Enroll hanya embedding, NO photo save
+            enrolled, msg = face_engine.enroll_multiple_frames_fast(frames, nik, min_embeddings=5)
             if enrolled > 0:
-                # Log successful InsightFace registration
                 log_scan_result(
                     status="success",
                     nik=str(nik),
@@ -874,12 +656,11 @@ def api_register():
                     dob=dob,
                     address=address,
                     age=calculate_age(dob),
-                    message=f"Register OK (InsightFace). {enrolled} foto."
+                    message=f"Register OK (InsightFace). {enrolled} embedding."
                 )
-                return jsonify(ok=True, msg=f"Register OK (InsightFace). {enrolled} foto.")
+                return jsonify(ok=True, msg=f"Register OK (InsightFace). {enrolled} embedding.")
         except Exception as e:
             logger.error(f"InsightFace Error: {e}")
-            # Log failed InsightFace registration
             log_scan_result(
                 status="failed",
                 nik=str(nik),
@@ -890,18 +671,19 @@ def api_register():
                 message=f"InsightFace Error: {str(e)}"
             )
 
-    # LBPH Fallback
+    # LBPH Fallback (existing code tetap sama)
     next_idx = list_existing_samples(nik) + 1
     saved = 0
     for img in frames:
         saved += save_face_images_from_frame(img, name, nik, next_idx + saved)
         if saved >= 20: break
     
-    if saved < 20: saved += ensure_min_samples(nik, 20)
+    if saved < 20: 
+        saved += ensure_min_samples(nik, 20)
     
     if saved == 0:
-        with db_connect() as conn: conn.execute("DELETE FROM patients WHERE nik = ?", (nik,))
-        # Log failed registration
+        with db_connect() as conn: 
+            conn.execute("DELETE FROM patients WHERE nik = ?", (nik,))
         log_scan_result(
             status="failed",
             nik=str(nik),
@@ -914,7 +696,6 @@ def api_register():
         return jsonify(ok=False, msg="Gagal simpan wajah (LBPH)."), 400
         
     retrain_after_change()
-    # Log successful registration
     log_scan_result(
         status="success",
         nik=str(nik),
@@ -931,49 +712,143 @@ def api_register():
 # ====== RECOGNIZE ======
 @app.post("/api/recognize")
 def api_recognize():
+    """
+    BLINK-GATED VERIFICATION ENDPOINT
+    Workflow: Client detects mesh → waits for blink → captures frame → sends to backend
+    Backend enforces blink requirement and runs InsightFace recognition
+    """
+    # === ENFORCE BLINK-GATED WORKFLOW ===
+    liveness_data_str = request.form.get('liveness_data')
+    if not liveness_data_str:
+        log_scan_result(status="failed", message="Liveness data tidak ditemukan.")
+        return jsonify(ok=False, msg="Liveness data required."), 400
+
+    try:
+        client_liveness_data = json.loads(liveness_data_str)
+    except json.JSONDecodeError:
+        log_scan_result(status="failed", message="Liveness data tidak valid.")
+        return jsonify(ok=False, msg="Invalid liveness data."), 400
+
+    # Check if blink was detected on client side
+    if not client_liveness_data.get('blinkDetected', False):
+        log_scan_result(status="failed", message="Blink tidak terdeteksi pada client.")
+        return jsonify(ok=False, msg="Blink not detected. Please blink to verify."), 400
+
+    # Check validation method
+    if client_liveness_data.get('validationMethod') != 'blink-gated-workflow':
+        log_scan_result(status="failed", message="Metode validasi tidak valid.")
+        return jsonify(ok=False, msg="Invalid validation method."), 400
+
     files = request.files.getlist("files[]") if request.files.getlist("files[]") else request.files.getlist("frames[]")
-    if not files: 
+    if not files:
         log_scan_result(status="failed", message="Tidak ada frame yang dikirim.")
-        return jsonify(ok=False, msg="No frames."), 400
-    
+        return jsonify(ok=False, msg="No frames sent."), 400
+
     frames = [bytes_to_bgr(f.read()) for f in files]
 
-    # --- 1. INSIGHTFACE ENGINE ---
+    # === AUTOMATIC VERIFICATION WITH INSIGHTFACE ===
     if FACE_ENGINE == "insightface":
         try:
-            res = face_engine.recognize_face_multi_frame(frames)
-            if res:
-                with db_connect() as conn:
-                    r = conn.execute("SELECT * FROM patients WHERE nik=?", (res['nik'],)).fetchone()
-                if r:
-                    # SUKSES
-                    log_scan_result(
-                        status="success",
-                        nik=str(r['nik']),
-                        name=r['name'],
-                        dob=r['dob'],
-                        address=r['address'],
-                        age=calculate_age(r['dob']),
-                        message=f"Verifikasi berhasil (InsightFace). Confidence: {res.get('confidence')}%"
-                    )
-                    return jsonify(ok=True, found=True, nik=r['nik'], name=r['name'], 
-                                   dob=r['dob'], address=r['address'], age=calculate_age(r['dob']),
-                                   confidence=res.get('confidence'), engine="insightface")
-            else:
-                 # GAGAL: Wajah ada tapi tidak cocok dengan database
-                 log_scan_result(status="failed", message="Wajah tidak dikenali di database (InsightFace).")
-        
-        except Exception as e:
-            logger.error(f"Recog Error: {e}")
-            log_scan_result(status="failed", message=f"System Error: {str(e)}")
+            # Parse client liveness data if provided
+            client_liveness_data = None
+            liveness_data_str = request.form.get('liveness_data')
+            if liveness_data_str:
+                try:
+                    client_liveness_data = json.loads(liveness_data_str)
+                    logger.info(f"Received client liveness data: {client_liveness_data}")
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Failed to parse liveness_data: {e}")
 
-    # --- 2. LBPH FALLBACK ---
+            # Process each frame with automatic verification
+            results = []
+            for frame in frames:
+                ver_result = face_engine.verify_face_automatic(
+                    frame,
+                    require_liveness=True,
+                    threshold=None,  # Use default RECOGNITION_THRESHOLD
+                    client_liveness_data=client_liveness_data
+                )
+                results.append(ver_result)
+
+                # Early exit on first success
+                if ver_result['success']:
+                    break
+            
+            # Find best result
+            successful = [r for r in results if r['success']]
+            if not successful:
+                # Check if liveness failed
+                liveness_failed = any(r['details'].get('liveness_recommendation', '').startswith('FAKE') for r in results if r['liveness_passed'] == False)
+                
+                if liveness_failed:
+                    log_scan_result(
+                        status="failed",
+                        message=f"SPOOFING DETECTED: Fake face or screen attack detected."
+                    )
+                    return jsonify(
+                        ok=True, 
+                        found=False, 
+                        spoofing_detected=True,
+                        liveness_score=0.2,
+                        liveness_recommendation="FAKE - Anti-spoof triggered",
+                        msg="⚠️ SPOOFING TERDETEKSI! Gunakan wajah asli, bukan foto."
+                    )
+                
+                log_scan_result(status="failed", message="Wajah tidak dikenali di database.")
+                return jsonify(ok=True, found=False, msg="Wajah tidak dikenali.")
+            
+            # Get best match
+            best = max(successful, key=lambda x: x['similarity'])
+            nik = best['nik']
+            
+            # Get patient data
+            with db_connect() as conn:
+                r = conn.execute("SELECT * FROM patients WHERE nik=?", (nik,)).fetchone()
+            
+            if not r:
+                log_scan_result(status="failed", message=f"NIK {nik} terdeteksi tapi data tidak ada di DB.")
+                return jsonify(ok=True, found=False, msg="User tidak ada di DB.")
+            
+            # Log success
+            log_scan_result(
+                status="success",
+                nik=str(r['nik']),
+                name=r['name'],
+                dob=r['dob'],
+                address=r['address'],
+                age=calculate_age(r['dob']),
+                message=f"Verifikasi berhasil. Similarity: {best['similarity']:.1%}, Liveness: {best['liveness_score']:.1%}"
+            )
+            
+            return jsonify(
+                ok=True, 
+                found=True, 
+                nik=r['nik'], 
+                name=r['name'], 
+                dob=r['dob'], 
+                address=r['address'], 
+                age=calculate_age(r['dob']),
+                similarity=best['similarity'],
+                confidence=best['confidence'], 
+                engine="insightface_auto",
+                liveness_passed=best['liveness_passed'],
+                liveness_score=best['liveness_score'],
+                liveness_recommendation=best['details'].get('liveness_recommendation', 'REAL'),
+                msg=f"✓ Verifikasi berhasil! {r['name']}"
+            )
+            
+        except Exception as e:
+            logger.error(f"Auto-verify error: {e}")
+            log_scan_result(status="failed", message=f"System Error: {str(e)}")
+            return jsonify(ok=False, msg=f"Error: {str(e)}"), 500
+
+    # === LBPH FALLBACK (no liveness) ===
     if not model_loaded: 
         log_scan_result(status="failed", message="Model belum di-load/training.")
-        return jsonify(ok=False, msg="Wajah Tidak Dikenali."), 400
+        return jsonify(ok=False, msg="Wajah Tidak Dikenali. "), 400
         
     if not recognizer: 
-        return jsonify(ok=False, msg="LBPH error."), 500
+        return jsonify(ok=False, msg="LBPH error. "), 500
 
     from collections import defaultdict, Counter
     votes = defaultdict(list)
@@ -987,7 +862,6 @@ def api_recognize():
         except: pass
     
     if not votes:
-        # GAGAL: Wajah tidak terdeteksi sama sekali
         log_scan_result(status="failed", message="Wajah tidak terdeteksi dalam frame.")
         return jsonify(ok=True, found=False, msg="Wajah tidak terdeteksi.")
     
@@ -996,7 +870,6 @@ def api_recognize():
     med_conf = float(np.median(confs))
     
     if len(confs) < MIN_VALID_FRAMES or med_conf >= LBPH_CONF_THRESHOLD:
-        # GAGAL: Confidence jelek
         log_scan_result(status="failed", message=f"Akurasi rendah (Conf: {int(med_conf)}). Wajah tidak valid.")
         return jsonify(ok=True, found=False, msg="Tidak dikenali.")
         
@@ -1004,13 +877,11 @@ def api_recognize():
         r = conn.execute("SELECT * FROM patients WHERE nik=?", (major,)).fetchone()
     
     if not r: 
-        # GAGAL: ID diprediksi tapi data pasien sudah dihapus
         log_scan_result(status="failed", message=f"NIK {major} terdeteksi tapi data tidak ada di DB.")
         return jsonify(ok=True, found=False, msg="User tidak ada di DB.")
     
     age = calculate_age(r['dob'])
     
-    # SUKSES LBPH
     log_scan_result(
         status="success",
         nik=str(r['nik']),
@@ -1018,11 +889,23 @@ def api_recognize():
         dob=r['dob'],
         address=r['address'],
         age=age,
-        message=f"Verifikasi berhasil (LBPH). Confidence: {int(max(0, min(100, 100 - med_conf)))}%"
+        message=f"Verifikasi berhasil (LBPH).  Confidence: {int(max(0, min(100, 100 - med_conf)))}%"
     )
-    return jsonify(ok=True, found=True, nik=r['nik'], name=r['name'], dob=r['dob'], 
-                   address=r['address'], age=age, 
-                   confidence=int(max(0, min(100, 100 - med_conf))), engine="lbph")
+    return jsonify(
+        ok=True, 
+        found=True, 
+        nik=r['nik'], 
+        name=r['name'], 
+        dob=r['dob'], 
+        address=r['address'], 
+        age=age, 
+        confidence=int(max(0, min(100, 100 - med_conf))), 
+        engine="lbph",
+        liveness_passed=True,
+        liveness_score=0.5,
+        liveness_recommendation="N/A (LBPH mode)"
+    )
+
 
 
 # ====== ADMIN ACTIONS ======

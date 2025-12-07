@@ -1,69 +1,52 @@
-# Exclude data folder (Wajah & KTP)
-data/
-data/database_wajah/
-data/database_ktp/
-
-# Model files (generated at runtime)
-model/buffalo_l/
-model/models/
-model/embeddings.db
-model/Trainer.yml
-model/labels.pkl
-model/last_dataset.sig
-model/*.npy
-model/*.zip
-
-# Python cache & logs
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git
-.mypy_cache
-.pytest_cache
-.hypothesis
-
-# Virtual environments
-.env
-.venv/
 env/
 venv/
 ENV/
-env.bak/
-venv.bak/
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
 
-# IDE settings
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# IDE/editor
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# OS files
 .DS_Store
-Thumbs.db
 
-# Temporary files & Debugging Images (PENTING)
-temp_scan.jpg
-debug_*.jpg
-test_ktp.py
-test_engine.py
-
-# Database
-database.db
+# Database & Model
+*.db
+*.sqlite
 *.sqlite3
+database/*.db
+model/*.db
+model/buffalo_l/*.onnx
 
-# Windows DLLs (jaga-jaga kalau tercecer di root)
-*.dll
-*.lib
+# Logs & Cache
+*.log
+logs/
+.cache/
+tunnel_status.json
+
+# OS/Temp
+Thumbs.db
+.DS_Store
+*.bak
+*.tmp
+*.temp
+
+# Static cache
+static/.cache
