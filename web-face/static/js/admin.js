@@ -92,21 +92,6 @@
     nextPageBtn.disabled = state.currentPage === totalPages;
   }
 
-  async function updateEmbeddingsCount() {
-  try {
-    const r = await fetch('/api/embeddings/count');
-    const d = await r.json();
-    if (d.ok) {
-      document.getElementById('embeddings-count').textContent = d.count;
-    } else {
-      document.getElementById('embeddings-count').textContent = '0';
-    }
-  } catch {
-    document.getElementById('embeddings-count').textContent = '0';
-  }
-}
-updateEmbeddingsCount();
-
   async function fetchPatients() {
     try {
       const r = await fetch('/api/patients');

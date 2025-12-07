@@ -52,7 +52,7 @@ FACE_ENGINE = None
 
 try:
     if USE_INSIGHTFACE:
-        import face_engine
+        import face_engine as face_engine
         FACE_ENGINE = "insightface"
         logger.info("Using InsightFace engine for face recognition")
 except ImportError as e:
